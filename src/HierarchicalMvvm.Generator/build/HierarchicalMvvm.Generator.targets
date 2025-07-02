@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup>
+    <Analyzer Include="$(MSBuildThisFileDirectory)\..\analyzers\dotnet\cs\HierarchicalMvvm.Generator.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="HierarchicalMvvm.Attributes" Version="1.0.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>HierarchicalMvvm.Attributes</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Authors>YourName</Authors>
+    <Description>Attributes for Hierarchical MVVM Source Generator</Description>
+  </PropertyGroup>
+</Project>

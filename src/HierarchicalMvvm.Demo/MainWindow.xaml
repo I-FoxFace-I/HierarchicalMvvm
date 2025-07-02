@@ -1,0 +1,53 @@
+﻿<Window x:Class="HierarchicalMvvm.Demo.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Hierarchical MVVM Demo" Height="600" Width="800">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Person Editor -->
+        <GroupBox Grid.Row="0" Header="Person Editor" Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <Label Grid.Row="0" Grid.Column="0" Content="First Name:"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedPerson.FirstName, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+                
+                <Label Grid.Row="1" Grid.Column="0" Content="Last Name:"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedPerson.LastName, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+                
+                <Label Grid.Row="2" Grid.Column="0" Content="Age:"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedPerson.Age, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+                
+                <Label Grid.Row="3" Grid.Column="0" Content="Email:"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedPerson.Email, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+                
+                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="5">
+                    <Button Content="Save" Command="{Binding SavePersonCommand}" Margin="0,0,10,0"/>
+                    <Button Content="Reset" Command="{Binding ResetPersonCommand}"/>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+        
+        <!-- Change Log -->
+        <GroupBox Grid.Row="2" Header="Change Log" Margin="0,10,0,0">
+            <TextBox Text="{Binding ChangeLog}" IsReadOnly="True" TextWrapping="Wrap" 
+                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
+        </GroupBox>
+    </Grid>
+</Window>
