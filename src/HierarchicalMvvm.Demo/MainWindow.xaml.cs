@@ -1,4 +1,4 @@
-﻿using HierarchicalMvvm.Demo.ViewModels;
+using HierarchicalMvvm.Demo.ViewModels;
 using System.Windows;
 
 namespace HierarchicalMvvm.Demo

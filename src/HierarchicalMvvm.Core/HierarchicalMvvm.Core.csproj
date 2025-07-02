@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <LangVersion>latest</LangVersion>
@@ -14,7 +14,3 @@
     <ProjectReference Include="..\HierarchicalMvvm.Attributes\HierarchicalMvvm.Attributes.csproj" />
   </ItemGroup>
 </Project>
-
-
-
-
