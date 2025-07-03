@@ -1,16 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <UseWPF>true</UseWPF>
-  </PropertyGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <ProjectReference Include="..\HierarchicalMvvm.Attributes\HierarchicalMvvm.Attributes.csproj" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+
+		<!-- NuGet Package Info -->
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>HierarchicalMvvm.Core</PackageId>
+		<PackageVersion>1.0.0</PackageVersion>
+		<Authors>MartinHenych</Authors>
+		<Company>AtlasCopco</Company>
+		<Product>HierarchicalMvvm</Product>
+		<Description>Core classes and interfaces for Hierarchical MVVM - provides base classes for hierarchical data structures with automatic event propagation in WPF applications.</Description>
+		<PackageTags>mvvm;wpf;databinding;hierarchical;inotifypropertychanged;observablecollection</PackageTags>
+		<PackageProjectUrl>https://github.com/I-FoxFace-I/HierarchicalMvvm</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/I-FoxFace-I/HierarchicalMvvm</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<PackageReleaseNotes>Initial release with HierarchicalModelBase and HierarchicalObservableCollection.</PackageReleaseNotes>
+		<Copyright>Copyright (c) 2025 YourName</Copyright>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\HierarchicalMvvm.Attributes\HierarchicalMvvm.Attributes.csproj" />
+	</ItemGroup>
 </Project>

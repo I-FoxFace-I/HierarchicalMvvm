@@ -1,23 +1,42 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    
-    <OutputItemType>Analyzer</OutputItemType>
-    <IsRoslynAnalyzer>true</IsRoslynAnalyzer><PackageId>HierarchicalMvvm.Generator</PackageId>
-    <PackageVersion>1.0.0</PackageVersion>
-  </PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.5.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
-  </ItemGroup>
+		<OutputItemType>Analyzer</OutputItemType>
+		<IsRoslynAnalyzer>true</IsRoslynAnalyzer>
+		<PackageId>HierarchicalMvvm.Generator</PackageId>
+		<PackageVersion>1.0.0</PackageVersion>
 
-  <ItemGroup>
-    <None Include="build\HierarchicalMvvm.Generator.props" Pack="true" PackagePath="build\" />
-    <None Include="build\HierarchicalMvvm.Generator.targets" Pack="true" PackagePath="build\" />
-  </ItemGroup>
+		<!-- NuGet Package Info -->
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>HierarchicalMvvm.Generator</PackageId>
+		<PackageVersion>1.0.0</PackageVersion>
+		<Authors>MartinHenych</Authors>
+		<Company>AtlasCopco</Company>
+		<Product>HierarchicalMvvm</Product>
+		<Description>Source Generator for Hierarchical MVVM - automatically generates WPF-ready Model classes from POCO objects with bidirectional conversion and hierarchical event propagation.</Description>
+		<PackageTags>mvvm;wpf;sourcegenerator;databinding;hierarchical;codegen;analyzer</PackageTags>
+		<PackageProjectUrl>https://github.com/I-FoxFace-I/HierarchicalMvvm</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/I-FoxFace-I/HierarchicalMvvm</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<PackageReleaseNotes>Initial release with automatic Model class generation and hierarchical event propagation.</PackageReleaseNotes>
+		<Copyright>Copyright (c) 2025 YourName</Copyright>
+
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.5.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="build\HierarchicalMvvm.Generator.props" Pack="true" PackagePath="build\" />
+		<None Include="build\HierarchicalMvvm.Generator.targets" Pack="true" PackagePath="build\" />
+	</ItemGroup>
 </Project>

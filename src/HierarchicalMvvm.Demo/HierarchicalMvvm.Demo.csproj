@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
-		<TargetFramework>net8.0-windows</TargetFramework>
+		<TargetFramework>net9.0-windows</TargetFramework>
 		<Nullable>enable</Nullable>
 		<UseWPF>true</UseWPF>
 		<LangVersion>latest</LangVersion>
@@ -10,6 +10,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\HierarchicalMvvm.Attributes\HierarchicalMvvm.Attributes.csproj" />
 		<ProjectReference Include="..\HierarchicalMvvm.Core\HierarchicalMvvm.Core.csproj" />
 		<ProjectReference Include="..\HierarchicalMvvm.Generator\HierarchicalMvvm.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
