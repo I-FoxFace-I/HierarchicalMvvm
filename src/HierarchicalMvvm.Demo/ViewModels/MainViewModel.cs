@@ -11,43 +11,184 @@ namespace HierarchicalMvvm.Demo.ViewModels
     public partial class MainViewModel : ObservableObject
     {
         [ObservableProperty]
-        private PersonModel? selectedPerson;
+        private PersonModel selectedPerson;
 
         [ObservableProperty]
-        private CompanyModel? selectedCompany;
+        private CompanyModel selectedCompany;
+
+        [ObservableProperty]
+        private DepartmentModel selectedDepartment;
+
+        [ObservableProperty]
+        private EmployeeModel selectedEmployee;
 
         [ObservableProperty]
         private string changeLog = string.Empty;
 
         public MainViewModel()
         {
+            var initPerson = CreateDefaultPerson();
+            var initCompany = CreateDefaultCompany();
+
+            SelectedPerson = initPerson.ToModel();
+
+            SelectedCompany = initCompany.ToModel();
+
+            SelectedDepartment = SelectedCompany.Departments.First();
+
+            SelectedPerson.PropertyChanged += OnPersonChanged;
+            SelectedCompany.PropertyChanged += OnCompanyChanged;
+
             LoadSampleData();
+        }
+
+        private Company CreateDefaultCompany()
+        {
+            return new Company
+            {
+                Name = "Acme Corp",
+                Address = "123 Main Street",
+                Departments = new List<Department>
+                {
+                    new Department
+                    {
+                        Name = "IT Department",
+                        Manager = "Alice Johnson",
+                        Employees =  new List<Employee>
+                        {
+                            new Employee
+                            {
+                                FirstName = "John",
+                                LastName = "Doe",
+                                Salary = 75000,
+                                PersonalInfo = new Person
+                                {
+                                    FirstName = "John",
+                                    LastName = "Doe",
+                                    Age = 35,
+                                    Email = "john.doe@acme.com"
+                                }
+                            },
+                            new Employee
+                            {
+                                FirstName = "Jane",
+                                LastName = "Smith",
+                                Salary = 80000,
+                                PersonalInfo = new Person {
+                                    FirstName = "Jane",
+                                    LastName = "Smith",
+                                    Age = 32,
+                                    Email = "jane.smith@acme.com"
+                                }
+                            }
+                        },
+                    },
+                    new Department
+                    {
+                        Name = "HR Department",
+                        Manager = "Bob Wilson",
+                        Employees = new List<Employee>
+                        {
+                            new Employee
+                            {
+                                FirstName = "Charlie",
+                                LastName = "Brown",
+                                Salary = 65000,
+                                PersonalInfo = new Person
+                                {
+                                    FirstName = "Charlie",
+                                    LastName = "Brown",
+                                    Age = 28,
+                                    Email = "charlie.brown@acme.com"
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        private Person CreateDefaultPerson()
+        {
+            return new Person
+            {
+                FirstName = "Jan",
+                LastName = "Novák",
+                Age = 30,
+                Email = "jan.novak@email.cz"
+            };
         }
 
         private void LoadSampleData()
         {
             // Create simple Person
-            var person = new Person("Jan", "Novák", 30, "jan.novak@email.cz");
+            var person = new Person { FirstName = "Jan", LastName = "Novák", Age = 30, Email = "jan.novak@email.cz" };
             SelectedPerson = person.ToModel();
             SelectedPerson.PropertyChanged += OnPersonChanged;
 
             // Create hierarchical Company structure
-            var company = new Company(
-                "Acme Corp",
-                "123 Main Street",
-                new List<Department>
+            var company = new Company
+            {
+                Name = "Acme Corp",
+                Address = "123 Main Street",
+                Departments = new List<Department>
                 {
-                    new("IT Department", "Alice Johnson", new List<Employee>
+                    new Department
                     {
-                        new("John", "Doe", 75000, new Person("John", "Doe", 35, "john.doe@acme.com")),
-                        new("Jane", "Smith", 80000, new Person("Jane", "Smith", 32, "jane.smith@acme.com"))
-                    }),
-                    new("HR Department", "Bob Wilson", new List<Employee>
+                        Name = "IT Department",
+                        Manager = "Alice Johnson",
+                        Employees =  new List<Employee>
+                        {
+                            new Employee
+                            {
+                                FirstName = "John",
+                                LastName = "Doe",
+                                Salary = 75000,
+                                PersonalInfo = new Person
+                                {
+                                    FirstName = "John",
+                                    LastName = "Doe",
+                                    Age = 35,
+                                    Email = "john.doe@acme.com"
+                                }
+                            },
+                            new Employee
+                            {
+                                FirstName = "Jane",
+                                LastName = "Smith",
+                                Salary = 80000,
+                                PersonalInfo = new Person {
+                                    FirstName = "Jane",
+                                    LastName = "Smith",
+                                    Age = 32,
+                                    Email = "jane.smith@acme.com"
+                                }
+                            }
+                        },
+                    },
+                    new Department
                     {
-                        new("Charlie", "Brown", 65000, new Person("Charlie", "Brown", 28, "charlie.brown@acme.com"))
-                    })
+                        Name = "HR Department",
+                        Manager = "Bob Wilson",
+                        Employees = new List<Employee>
+                        {
+                            new Employee
+                            {
+                                FirstName = "Charlie",
+                                LastName = "Brown",
+                                Salary = 65000,
+                                PersonalInfo = new Person
+                                {
+                                    FirstName = "Charlie",
+                                    LastName = "Brown",
+                                    Age = 28,
+                                    Email = "charlie.brown@acme.com"
+                                }
+                            }
+                        }
+                    }
                 }
-            );
+            };
 
             SelectedCompany = company.ToModel();
             SelectedCompany.PropertyChanged += OnCompanyChanged;
@@ -88,7 +229,13 @@ namespace HierarchicalMvvm.Demo.ViewModels
         {
             if (SelectedPerson != null)
             {
-                var originalPerson = new Person("Jan", "Novák", 30, "jan.novak@email.cz");
+                var originalPerson = new Person
+                {
+                    FirstName = "Jan",
+                    LastName = "Novák",
+                    Age = 30,
+                    Email = "jan.novak@email.cz"
+                };
                 SelectedPerson.UpdateFrom(originalPerson);
                 ChangeLog += $"[{DateTime.Now:HH:mm:ss}] Person reset\n";
             }
@@ -97,32 +244,31 @@ namespace HierarchicalMvvm.Demo.ViewModels
         [RelayCommand]
         private void AddEmployee()
         {
-            if (SelectedCompany?.Departments.FirstOrDefault() is DepartmentModel dept)
+
+            var newEmployee = new Employee
             {
-                var newEmployee = new Employee(
-                    "New", 
-                    "Employee", 
-                    50000, 
-                    new Person("New", "Employee", 25, "new.employee@acme.com")
-                );
-                dept.Employees.Add(newEmployee.ToModel());
-                ChangeLog += $"[{DateTime.Now:HH:mm:ss}] Employee added to {dept.Name}\n";
-            }
+                FirstName = "New",
+                LastName = "Employee",
+                Salary = 50000,
+                PersonalInfo = new Person { FirstName = "New", LastName = "Employee", Age = 25, Email = "new.employee@acme.com" }
+            };
+
+            SelectedCompany.Departments.First().Employees.Add(newEmployee.ToModel());
+            ChangeLog += $"[{DateTime.Now:HH:mm:ss}] Employee added to {SelectedDepartment.Name}\n";
         }
 
         [RelayCommand]
         private void AddDepartment()
         {
-            if (SelectedCompany != null)
+            var newDept = new Department
             {
-                var newDept = new Department(
-                    "New Department", 
-                    "New Manager", 
-                    new List<Employee>()
-                );
-                SelectedCompany.Departments.Add(newDept.ToModel());
-                ChangeLog += $"[{DateTime.Now:HH:mm:ss}] Department added\n";
-            }
+                Name = "New Department",
+                Manager = "New Manager",
+                Employees = new List<Employee>()
+            };
+
+            SelectedCompany.Departments.Add(newDept.ToModel());
+            ChangeLog += $"[{DateTime.Now:HH:mm:ss}] Department added\n";
         }
     }
 }

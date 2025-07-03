@@ -5,7 +5,9 @@
     <Nullable>enable</Nullable>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageId>HierarchicalMvvm.Generator</PackageId>
+    
+    <OutputItemType>Analyzer</OutputItemType>
+    <IsRoslynAnalyzer>true</IsRoslynAnalyzer><PackageId>HierarchicalMvvm.Generator</PackageId>
     <PackageVersion>1.0.0</PackageVersion>
   </PropertyGroup>
 

@@ -14,13 +14,5 @@ namespace HierarchicalMvvm.Demo.ViewModels
         // - ToRecord() a UpdateFrom() metody
     }
 
-    [ModelWrapper(typeof(Company))]
-    public partial class CompanyModel { }
-
-    [ModelWrapper(typeof(Department))]
-    public partial class DepartmentModel { }
-
-    [ModelWrapper(typeof(Employee))]
-    public partial class EmployeeModel { }
-
 }
+

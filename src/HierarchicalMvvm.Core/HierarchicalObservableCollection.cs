@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 
@@ -8,10 +10,24 @@ namespace HierarchicalMvvm.Core
     {
         private readonly IHierarchicalModel _parent;
 
+
         public HierarchicalObservableCollection(IHierarchicalModel parent)
+            : base()
+        { 
+            _parent = parent;
+            CollectionChanged += OnCollectionChanged;
+        }
+
+        public HierarchicalObservableCollection(IHierarchicalModel parent, IEnumerable<T> items)
+            : base(items) 
         {
             _parent = parent;
             CollectionChanged += OnCollectionChanged;
+            foreach(var item in items)
+            {
+                _parent.RegisterChild(item);
+                item.Parent = _parent;
+            }
         }
 
         private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
