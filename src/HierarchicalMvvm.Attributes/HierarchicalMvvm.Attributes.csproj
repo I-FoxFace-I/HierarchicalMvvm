@@ -3,24 +3,6 @@
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<LangVersion>latest</LangVersion>
 		<Nullable>enable</Nullable>
-		
-
-		<!-- NuGet Package Info -->
-		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-		<PackageId>HierarchicalMvvm.Attributes</PackageId>
 		<PackageVersion>1.0.0</PackageVersion>
-		<Authors>MartinHenych</Authors>
-		<Company>AtlasCopco</Company>
-		<Product>HierarchicalMvvm</Product>
-		<Description>Attributes for Hierarchical MVVM Source Generator - enables automatic generation of WPF-ready Model classes from POCO objects with hierarchical event propagation.</Description>
-		<PackageTags>mvvm;wpf;sourcegenerator;databinding;hierarchical;inotifypropertychanged</PackageTags>
-		<PackageProjectUrl>https://github.com/I-FoxFace-I/HierarchicalMvvm.git</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/I-FoxFace-I/HierarchicalMvvm.git</RepositoryUrl>
-		<RepositoryType>git</RepositoryType>
-		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageReleaseNotes>Initial release with ModelWrapper attribute support.</PackageReleaseNotes>
-		<Copyright>Copyright (c) 2025 YourName</Copyright>
-
 	</PropertyGroup>
 </Project>

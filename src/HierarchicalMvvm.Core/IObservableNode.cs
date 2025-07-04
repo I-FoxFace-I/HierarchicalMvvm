@@ -1,6 +1,6 @@
 namespace HierarchicalMvvm.Core
 {
-    public interface IObservableNode : IObservableParent, IObservableChild
+    public interface IObservableNode : IParentObserver, IObservableModel
     {
 
     }

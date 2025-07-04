@@ -1,4 +1,5 @@
 using HierarchicalMvvm.Attributes;
+using HierarchicalMvvm.Core;
 using HierarchicalMvvm.Demo.Models;
 
 namespace HierarchicalMvvm.Demo.ViewModels
@@ -13,6 +14,14 @@ namespace HierarchicalMvvm.Demo.ViewModels
         // - Konstruktory
         // - ToRecord() a UpdateFrom() metody
     }
+
+    public partial class PersonBaseModel : DeepObservableObject
+    {
+
+    }
+
+    [ModelWrapper(typeof(LegalPerson))]
+    public partial class LegalPersonModel : PersonBaseModel { }
 
 }
 

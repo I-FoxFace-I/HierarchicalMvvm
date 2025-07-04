@@ -28,32 +28,41 @@ public static class DiagnosticHelper
         DiagnosticSeverity.Error,
         true);
 
-    public static void LogInfo(SourceProductionContext context, string message)
+    public static void LogInfo(SourceProductionContext? context, string message)
     {
-        context.ReportDiagnostic(Diagnostic.Create(InfoDescriptor, Location.None, message));
+        if (context.HasValue)
+        {
+            context.Value.ReportDiagnostic(Diagnostic.Create(InfoDescriptor, Location.None, message));
+        }
     }
 
-    public static void LogWarning(SourceProductionContext context, string message)
+    public static void LogWarning(SourceProductionContext? context, string message)
     {
-        context.ReportDiagnostic(Diagnostic.Create(WarningDescriptor, Location.None, message));
+        if (context.HasValue)
+        {
+            context.Value.ReportDiagnostic(Diagnostic.Create(WarningDescriptor, Location.None, message));
+        }
     }
 
-    public static void LogError(SourceProductionContext context, string message)
+    public static void LogError(SourceProductionContext? context, string message)
     {
-        context.ReportDiagnostic(Diagnostic.Create(ErrorDescriptor, Location.None, message));
+        if (context.HasValue)
+        {
+            context.Value.ReportDiagnostic(Diagnostic.Create(ErrorDescriptor, Location.None, message));
+        }
     }
 
-    public static void LogInfo(SourceProductionContext context, string format, params object[] args)
+    public static void LogInfo(SourceProductionContext? context, string format, params object[] args)
     {
         LogInfo(context, string.Format(format, args));
     }
 
-    public static void LogWarning(SourceProductionContext context, string format, params object[] args)
+    public static void LogWarning(SourceProductionContext? context, string format, params object[] args)
     {
         LogWarning(context, string.Format(format, args));
     }
 
-    public static void LogError(SourceProductionContext context, string format, params object[] args)
+    public static void LogError(SourceProductionContext? context, string format, params object[] args)
     {
         LogError(context, string.Format(format, args));
     }

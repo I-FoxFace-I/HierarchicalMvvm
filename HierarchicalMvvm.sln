@@ -17,6 +17,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		complete_solution_structure.cs = complete_solution_structure.cs
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HierarchicalMvvm.Tests", "tests\HierarchicalMvvm.Tests\HierarchicalMvvm.Tests.csproj", "{9DBDC2FB-837A-4F76-8F77-5BA6002DC36F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +43,10 @@ Global
 		{44444444-4444-4444-4444-444444444444}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{44444444-4444-4444-4444-444444444444}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{44444444-4444-4444-4444-444444444444}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9DBDC2FB-837A-4F76-8F77-5BA6002DC36F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9DBDC2FB-837A-4F76-8F77-5BA6002DC36F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9DBDC2FB-837A-4F76-8F77-5BA6002DC36F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9DBDC2FB-837A-4F76-8F77-5BA6002DC36F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -48,5 +56,9 @@ Global
 		{22222222-2222-2222-2222-222222222222} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 		{33333333-3333-3333-3333-333333333333} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 		{44444444-4444-4444-4444-444444444444} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
+		{9DBDC2FB-837A-4F76-8F77-5BA6002DC36F} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7F0231F0-ED24-4456-9454-100D568F7756}
 	EndGlobalSection
 EndGlobal

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -7,25 +8,24 @@ namespace HierarchicalMvvm.Core
 {
     public abstract partial class DeepObservableObject : ObservableObject, IObservableNode
     {
-        protected IObservableParent? _parent;
+        protected bool _disposed = false;
+        protected IObserver? _observer;
+        
+        protected readonly List<IObservableModel> _targetModels = new();
 
-        protected readonly List<IObservableChild> _children = new();
-
-        public IObservableParent? Parent
+        public IObserver? Observer
         {
-            get => _parent;
+            get => _observer;
             set
             {
-                if (_parent != value)
+                if (_observer != value)
                 {
-                    _parent?.DetachChild(this);
-                    _parent = value;
-                    _parent?.RegisterChild(this);
+                    _observer?.DetachNode(this);
+                    _observer = value;
+                    _observer?.RegisterNode(this);
                 }
             }
         }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
 
         protected virtual string ExtendPropertyName(string propertyName)
         {
@@ -34,44 +34,37 @@ namespace HierarchicalMvvm.Core
 
         public virtual void PropagateChange(string propertyName, object? sender)
         {
-            if (Parent != null)
+            if (_observer is IParentObserver parent)
             {
                 // Propaguj změnu nahoru s rozšířeným názvem
-                Parent.ProcessChange(ExtendPropertyName(propertyName), sender ?? this);
+                parent.ProcessChange(ExtendPropertyName(propertyName), sender ?? this);
             }
             else
             {
                 // Jsme na top úrovni (root) - vyvolej PropertyChanged event
-                base.OnPropertyChanged();
+                base.OnPropertyChanged(propertyName);
             }
         }
 
         public virtual void ProcessChange(string message, object? sender)
         {
-            if (Parent != null)
+            PropagateChange(message, sender ?? this);
+        }
+
+        public void RegisterNode(IObservableModel node)
+        {
+            if (!_targetModels.Contains(node))
             {
-                ProcessChange(message, sender ?? this);
-            }
-            else
-            {
-                base.OnPropertyChanged();
+                _targetModels.Add(node);
+                node.PropertyChanged += OnChildPropertyChanged;
             }
         }
 
-        public void RegisterChild(IObservableChild child)
+        public void DetachNode(IObservableModel node)
         {
-            if (!_children.Contains(child))
+            if (_targetModels.Remove(node))
             {
-                _children.Add(child);
-                child.PropertyChanged += OnChildPropertyChanged;
-            }
-        }
-
-        public void DetachChild(IObservableChild child)
-        {
-            if (_children.Remove(child))
-            {
-                child.PropertyChanged -= OnChildPropertyChanged;
+                node.PropertyChanged -= OnChildPropertyChanged;
             }
         }
 
@@ -82,9 +75,9 @@ namespace HierarchicalMvvm.Core
 
         protected override void OnPropertyChanged(PropertyChangedEventArgs e)
         {
-            if (Parent != null)
+            if (_observer is IParentObserver parent)
             {
-                Parent.ProcessChange(e.PropertyName ?? string.Empty, this);
+                parent.ProcessChange(e.PropertyName ?? string.Empty, this);
             }
             else
             {
@@ -94,7 +87,7 @@ namespace HierarchicalMvvm.Core
 
         protected void OnPropertyChangedInternal([CallerMemberName] string? propertyName = null)
         {
-            if (Parent != null)
+            if (Observer != null)
             {
                 PropagateChange(propertyName ?? string.Empty, this);
             }
@@ -113,24 +106,54 @@ namespace HierarchicalMvvm.Core
             if (!ReferenceEquals(backingField, newValue))
             {
                 // Odhlásit starý objekt
-                if (backingField is IObservableChild oldChild)
+                if (backingField is IObservableModel oldChild)
                 {
-                    DetachChild(oldChild);
-                    oldChild.Parent = null;
+                    DetachNode(oldChild);
+                    oldChild.Observer = null;
                 }
 
                 // Nastavit novou hodnotu
                 backingField = newValue;
 
                 // Přihlásit nový objekt
-                if (newValue is IObservableChild newChild)
+                if (newValue is IObservableModel newChild)
                 {
-                    RegisterChild(newChild);
-                    newChild.Parent = this;
+                    RegisterNode(newChild);
+                    newChild.Observer = this;
                 }
 
                 OnPropertyChangedInternal(propertyName);
             }
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                // Clear event subscriptions
+                if (disposing)
+                {
+
+                    if(_observer != null)
+                    {
+                        _observer.DetachNode(this);
+                        _observer = null;
+                    }
+                    
+                    foreach(var child in _targetModels)
+                    {
+                        DetachNode(child);
+                        child.Dispose();
+                    }
+
+                    _disposed = true;
+                }
+            }
+        }
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

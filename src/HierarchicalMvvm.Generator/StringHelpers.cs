@@ -72,7 +72,7 @@ public static class StringHelpers
             return str;
 
         return str.Split('_').Where(segment => !string.IsNullOrEmpty(segment))
-                              .Select(segment => char.ToUpper(segment[0]) + segment.Substring(1))
+                              .Select(segment => char.ToUpper(segment[0]) + segment.Substring(1).ToLower())
                               .Aggregate(string.Empty, (current, segment) => current + segment);
     }
     private static string CamelCaseToSnakeCase(string str)
@@ -105,7 +105,7 @@ public static class StringHelpers
         if (string.IsNullOrEmpty(str))
             return str;
 
-        return ToTileCase(str);
+        return char.ToUpper(str[0]) + str.Substring(1);
     }
     private static string TitleCaseToSnakeCase(string str)
     {

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -6,23 +7,24 @@ using System.Linq;
 
 namespace HierarchicalMvvm.Core
 {
-    public class DeepObservableCollection<T> : DeepObservableObject, INotifyCollectionChanged, ICollection<T>, IEnumerable<T>, IEnumerable, IList<T>, IReadOnlyCollection<T>, IReadOnlyList<T> where T : IObservableChild
+    public class DeepObservableCollection<T> : DeepObservableObject, INotifyCollectionChanged, ICollection<T>, IEnumerable<T>, IEnumerable, IList<T>, IReadOnlyCollection<T>, IReadOnlyList<T> where T : IObservableModel
     {
+        private bool _disposed = false;
         private readonly ObservableCollection<T> _items = new();
 
-        public event NotifyCollectionChangedEventHandler CollectionChanged
+        public event NotifyCollectionChangedEventHandler? CollectionChanged
         {
             add => _items.CollectionChanged += value;
             remove => _items.CollectionChanged -= value;
         }
 
-        public DeepObservableCollection(IObservableParent? parent = null)
+        public DeepObservableCollection(IParentObserver? parent = null)
         {
-            _parent = parent;
+            _observer = parent;
             _items.CollectionChanged += OnCollectionChanged;
         }
 
-        public DeepObservableCollection(IEnumerable<T> collection, IObservableParent? parent = null) : this(parent)
+        public DeepObservableCollection(IEnumerable<T> collection, IParentObserver? parent = null) : this(parent)
         {
             foreach (var item in collection)
             {
@@ -33,16 +35,16 @@ namespace HierarchicalMvvm.Core
         public void Add(T item)
         {
             _items.Add(item);
-            RegisterChild(item);
-            item.Parent = this;
+            RegisterNode(item);
+            item.Observer = this;
         }
 
         public bool Remove(T item)
         {
             if (_items.Remove(item))
             {
-                DetachChild(item);
-                item.Parent = null;
+                DetachNode(item);
+                item.Observer = null;
 
                 return true;
             }
@@ -54,8 +56,8 @@ namespace HierarchicalMvvm.Core
         {
             foreach (var item in _items)
             {
-                DetachChild(item);
-                item.Parent = null;
+                DetachNode(item);
+                item.Observer = null;
             }
             _items.Clear();
         }
@@ -72,20 +74,20 @@ namespace HierarchicalMvvm.Core
                 if (!ReferenceEquals(backingField, value))
                 {
                     // Odhlásit starý objekt
-                    if (backingField is IObservableChild oldChild)
+                    if (backingField is IObservableModel oldChild)
                     {
-                        DetachChild(oldChild);
-                        oldChild.Parent = null;
+                        DetachNode(oldChild);
+                        oldChild.Observer = null;
                     }
 
                     // Nastavit novou hodnotu
                     _items[index] = value;
 
                     // Přihlásit nový objekt
-                    if (value is IObservableChild newChild)
+                    if (value is IObservableModel newChild)
                     {
-                        RegisterChild(newChild);
-                        newChild.Parent = this;
+                        RegisterNode(newChild);
+                        newChild.Observer = this;
                     }
 
 
@@ -104,8 +106,8 @@ namespace HierarchicalMvvm.Core
             {
                 foreach (T item in e.OldItems)
                 {
-                    DetachChild(item);
-                    item.Parent = null;
+                    DetachNode(item);
+                    item.Observer = null;
                 }
             }
 
@@ -113,8 +115,8 @@ namespace HierarchicalMvvm.Core
             {
                 foreach (T item in e.NewItems)
                 {
-                    RegisterChild(item);
-                    item.Parent = this;
+                    RegisterNode(item);
+                    item.Observer = this;
                 }
             }
 
@@ -143,8 +145,8 @@ namespace HierarchicalMvvm.Core
         public void Insert(int index, T item)
         {
             _items.Insert(index, item);
-            RegisterChild(item);
-            item.Parent = this;
+            RegisterNode(item);
+            item.Observer = this;
         }
 
         public void RemoveAt(int index)
@@ -157,6 +159,30 @@ namespace HierarchicalMvvm.Core
             var splitNames = propertyName.Split('.');
 
             return $"{splitNames.First()}[].{string.Join('.', splitNames.Skip(1))}";
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                // Clear event subscriptions
+                if (!disposing)
+                {
+                    CollectionChanged -= OnCollectionChanged;
+                    
+                    foreach (var item in _items)
+                    {
+                        DetachNode(item);
+                        item.Dispose();
+                    }
+                    
+                    _items.Clear();
+
+                    base.Dispose(disposing);
+
+                    _disposed = true;
+                }
+            }
         }
     }
 }

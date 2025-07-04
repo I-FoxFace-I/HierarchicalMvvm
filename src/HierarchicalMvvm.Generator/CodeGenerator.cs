@@ -12,10 +12,10 @@ public class CodeGenerator
     private readonly ModelGenerationInfo _modelInfo;
     private readonly ImmutableArray<PropertyInfo> _properties;
     private readonly Dictionary<string, string> _namespaceMapping;
-    private readonly SourceProductionContext _context;
+    private readonly SourceProductionContext? _context;
 
     public CodeGenerator(ModelGenerationInfo modelInfo, ImmutableArray<PropertyInfo> properties, 
-        Dictionary<string, string> namespaceMapping, SourceProductionContext context)
+        Dictionary<string, string> namespaceMapping, SourceProductionContext? context = null)
     {
         _modelInfo = modelInfo;
         _properties = properties;

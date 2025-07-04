@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -8,24 +9,26 @@ using System.Runtime.CompilerServices;
 
 namespace HierarchicalMvvm.Core
 {
-    public class NodeObservableCollection<T> : ObservableObject, IObservableChild, INotifyCollectionChanged, ICollection<T>, IEnumerable<T>, IEnumerable, IList<T>, IReadOnlyCollection<T>, IReadOnlyList<T>
+    public class NodeObservableCollection<T> : ObservableObject, IObservableModel, INotifyCollectionChanged, ICollection<T>, IEnumerable<T>, IEnumerable, IList<T>, IReadOnlyCollection<T>, IReadOnlyList<T>
     {
-        protected IObservableParent? _parent;
+        protected bool _disposed;
+        protected IObserver? _observer;
         private readonly ObservableCollection<T> _items = new();
 
-        public event NotifyCollectionChangedEventHandler CollectionChanged
+        public event NotifyCollectionChangedEventHandler? CollectionChanged
         {
             add => _items.CollectionChanged += value;
             remove => _items.CollectionChanged -= value;
         }
 
-        public NodeObservableCollection(IObservableParent? parent = null)
+        public NodeObservableCollection(IParentObserver? parent = null)
         {
-            _parent = parent;
+            _observer = parent;
+            _disposed = false;
             _items.CollectionChanged += OnCollectionChanged;
         }
 
-        public NodeObservableCollection(IEnumerable<T> collection, IObservableParent? parent = null) : this(parent)
+        public NodeObservableCollection(IEnumerable<T> collection, IParentObserver? parent = null) : this(parent)
         {
             foreach (var item in collection)
             {
@@ -98,16 +101,16 @@ namespace HierarchicalMvvm.Core
             Remove(_items[index]);
         }
 
-        public IObservableParent? Parent
+        public IObserver? Observer
         {
-            get => _parent;
+            get => _observer;
             set
             {
-                if (_parent != value)
+                if (_observer != value)
                 {
-                    _parent?.DetachChild(this);
-                    _parent = value;
-                    _parent?.RegisterChild(this);
+                    _observer?.DetachNode(this);
+                    _observer = value;
+                    _observer?.RegisterNode(this);
                 }
             }
         }
@@ -116,23 +119,24 @@ namespace HierarchicalMvvm.Core
 
         public virtual void PropagateChange(string propertyName, object? sender)
         {
-            if (Parent != null)
+
+            if (_observer is IParentObserver parent)
             {
                 // Propaguj změnu nahoru s rozšířeným názvem
-                Parent.ProcessChange($"{GetType().Name}.{propertyName}", sender ?? this);
+                parent.ProcessChange($"{GetType().Name}.{propertyName}", sender ?? this);
             }
             else
             {
                 // Jsme na top úrovni (root) - vyvolej PropertyChanged event
-                base.OnPropertyChanged();
+                base.OnPropertyChanged(propertyName);
             }
         }
 
         protected override void OnPropertyChanged(PropertyChangedEventArgs e)
         {
-            if (Parent != null)
+            if (_observer is IParentObserver parent)
             {
-                Parent.ProcessChange(e.PropertyName ?? string.Empty, this);
+                parent.ProcessChange(e.PropertyName ?? string.Empty, this);
             }
             else
             {
@@ -143,6 +147,25 @@ namespace HierarchicalMvvm.Core
         protected void OnPropertyChangedInternal([CallerMemberName] string? propertyName = null)
         {
             PropagateChange(propertyName ?? string.Empty, this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                // Clear event subscriptions
+                if (!disposing)
+                {
+                    PropertyChanged = null;
+                    _items.Clear();
+                    _disposed = true;
+                }
+            }
+        }
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }
