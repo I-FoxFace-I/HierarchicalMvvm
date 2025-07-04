@@ -1,6 +1,5 @@
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis;
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -10,6 +9,10 @@ using System.Collections;
 using System.Data;
 using System.Numerics;
 using System.Reflection;
+using Microsoft.CodeAnalysis.FlowAnalysis;
+using System.Text.RegularExpressions;
+using System;
+
 
 namespace HierarchicalMvvm.Generator;
 
@@ -58,6 +61,26 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
             .Any(attr => attr.Name.ToString().Contains("ModelWrapper"));
     }
 
+    private static INamedTypeSymbol? TryGetWrappedTypeFromBase(INamedTypeSymbol? type)
+    {
+        var baseType = type?.BaseType;
+
+        if (baseType == null || baseType.Name == "Object")
+            return null;
+
+        var attr = baseType.GetAttributes()
+            .FirstOrDefault(a => a.AttributeClass?.Name == "ModelWrapperAttribute");
+
+        if (attr != null &&
+            attr.ConstructorArguments.Length == 1 &&
+            attr.ConstructorArguments[0].Value is INamedTypeSymbol baseWrappedType)
+        {
+            return baseWrappedType;
+        }
+
+        return null;
+    }
+
     private static ModelGenerationInfo? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
     {
         var classDeclaration = (ClassDeclarationSyntax)context.Node;
@@ -72,13 +95,20 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
                 {
                     var targetType = GetTargetTypeFromAttribute(context, attribute);
 
+                    var generatedType = context.SemanticModel.GetDeclaredSymbol(classDeclaration) as INamedTypeSymbol;
+                    var baseWrapperType = TryGetWrappedTypeFromBase(generatedType);
+
                     if (targetType is not null)
                     {
                         return new ModelGenerationInfo
                         {
+                            IsDerived = baseWrapperType != null,
+                            IsAbstract = targetType.IsAbstract,
                             ClassDeclaration = classDeclaration,
-                            TargetType = targetType,
-                            SemanticModel = context.SemanticModel
+                            TargetWrapperType = targetType,
+                            SemanticModel = context.SemanticModel,
+                            BaseType = generatedType?.BaseType,
+                            BaseWrapperType = baseWrapperType,
                         };
                     }
                 }
@@ -140,12 +170,12 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
 
             var modelNamespace = GetNamespace(modelInfo.ClassDeclaration);
 
-            var targetTypeName = modelInfo.TargetType.ToDisplayString();
+            var targetTypeName = modelInfo.TargetWrapperType.ToDisplayString().Replace("?", "");
 
             // Map: "Person" -> "HierarchicalMvvm.Demo.ViewModels.PersonModel"
 
 
-            var targetTypeSimpleName = modelInfo.TargetType.Name;
+            var targetTypeSimpleName = modelInfo.TargetWrapperType.Name;
 
             var fullModelTypeName = string.IsNullOrEmpty(modelNamespace)
                 ? modelClassName
@@ -161,12 +191,12 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
     {
         var className = modelInfo.ClassDeclaration.Identifier.ValueText;
         var namespaceName = GetNamespace(modelInfo.ClassDeclaration);
-        var targetType = modelInfo.TargetType;
-        var targetTypeName = targetType.ToDisplayString();
+        var targetType = modelInfo.TargetWrapperType;
+        var targetTypeName = targetType.ToDisplayString().Replace("?", "");
 
         var properties = GetProperties(targetType, namespaceMapping);
 
-        var sourceCode = GenerateModelClass(className, namespaceName, targetTypeName, properties, namespaceMapping);
+        var sourceCode = GenerateModelClass(modelInfo, properties, namespaceMapping);
 
         context.AddSource($"{className}.g.cs", sourceCode);
     }
@@ -175,6 +205,13 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
     {
         var properties = ImmutableArray.CreateBuilder<PropertyInfo>();
 
+        INamedTypeSymbol? basetype = targetType.BaseType;
+
+        if (basetype != null)
+        {
+            properties.AddRange(GetProperties(basetype, namespaceMapping));
+        }
+
         foreach (var member in targetType.GetMembers().OfType<IPropertySymbol>())
         {
             if (member.Kind == SymbolKind.Property &&
@@ -182,22 +219,32 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
                 !member.IsStatic &&
                 member.GetMethod != null)
             {
+
                 var propertyKind = DeterminePropertyKind(member.Type);
                 var collectionElementType = GetCollectionElementType(member.Type);
+
+                if (properties.Count > 0 && properties.Any(p => p.Name == member.Name))
+                {
+                    continue;
+                }
 
                 properties.Add(new PropertyInfo
                 {
                     Name = member.Name,
                     Kind = propertyKind,
-                    Type = member.Type.ToDisplayString(),
+                    IsReadOnly = member.IsReadOnly,
+                    TypeName = member.Type.ToDisplayString().Replace("?", ""),
                     IsNullable = member.Type.CanBeReferencedByName && member.NullableAnnotation == NullableAnnotation.Annotated,
                     FullModelTypeName = GetFullModelTypeName(member.Type, namespaceMapping, propertyKind, collectionElementType?.ToDisplayString()),
                     CollectionElementType = propertyKind switch
                     {
-                        PropertyKind.PrimitiveCollection => collectionElementType?.ToDisplayString(),
+                        PropertyKind.Collection => collectionElementType?.ToDisplayString(),
                         PropertyKind.ModelCollection => GetFullModelTypeName(member.Type, namespaceMapping, propertyKind, collectionElementType?.ToDisplayString()),
                         _ => default
-                    }
+                    },
+                    ElementType = collectionElementType as INamedTypeSymbol,
+                    Type = member.Type as INamedTypeSymbol ?? throw new InvalidOperationException($"Cannot convert {member.Type} to INamedTypeSymbol"),
+                    
                 });
             }
         }
@@ -231,7 +278,7 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
 
     private static PropertyKind DeterminePropertyKind(ITypeSymbol type)
     {
-        if (PrimitiveTypes.Contains(type.ToDisplayString()))
+        if (PrimitiveTypes.Contains(type.ToDisplayString().Replace("?", "")))
             return PropertyKind.Primitive;
 
         // Check if it's a collection
@@ -241,7 +288,7 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
             {
                 return PropertyKind.ModelCollection;
             }
-            return PropertyKind.PrimitiveCollection;
+            return PropertyKind.Collection;
         }
 
         // Check if it's a single model object
@@ -270,7 +317,7 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
 
         if (type is INamedTypeSymbol namedType)
         {
-            if (PrimitiveTypes.Contains(namedType.ToDisplayString()))
+            if (PrimitiveTypes.Contains(namedType.ToDisplayString().Replace("?", "")))
                 return false;
 
             // Direct generic collection
@@ -282,12 +329,12 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
             }
 
             // Check implemented interfaces
-            if (namedType.AllInterfaces.FirstOrDefault(i => i.Name == "IEnumerable" && i.TypeArguments.Length == 1) is INamedTypeSymbol interfaceType)
-            {
-                elementType = interfaceType.TypeArguments.First();
+            //if (namedType.AllInterfaces.FirstOrDefault(i => i.Name == "IEnumerable" && i.TypeArguments.Length == 1) is INamedTypeSymbol interfaceType)
+            //{
+            //    elementType = interfaceType.TypeArguments.First();
 
-                return true;
-            }
+            //    return true;
+            //}
         }
 
         return false;
@@ -302,8 +349,14 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static string GenerateModelClass(string className, string namespaceName, string targetTypeName, ImmutableArray<PropertyInfo> properties, Dictionary<string, string> namespaceMapping)
+    private static string GenerateModelClass(ModelGenerationInfo modelInfo, ImmutableArray<PropertyInfo> properties, Dictionary<string, string> namespaceMapping)
     {
+        var namespaceName = GetNamespace(modelInfo.ClassDeclaration);
+        var className = modelInfo.ClassDeclaration.Identifier.ValueText;
+        var targetType = modelInfo.TargetWrapperType;
+        var baseType = modelInfo.BaseType;
+        var targetTypeName = targetType.ToDisplayString();
+
         var sb = new StringBuilder();
         var hasHierarchicalObjects = properties.Any(p => p.Kind is PropertyKind.ModelObject or PropertyKind.ModelCollection);
 
@@ -346,37 +399,61 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
         }
 
         // Class declaration - choose base class based on whether we have hierarchical objects
-        var baseClass = "DeepObservableObject";
-        var interfaces = hasHierarchicalObjects ? $"IModelWrapper<{targetTypeName}>" : $"INotifyPropertyChanged, IModelWrapper<{targetTypeName}>";
+        var baseTypeName = baseType?.ToDisplayString();
 
-        sb.AppendLine($"    public partial class {className} : {baseClass}, {interfaces}");
+        if (baseTypeName is null || baseTypeName == "object")
+            baseTypeName = "DeepObservableObject";
+
+        var interfaces = new List<string> { baseTypeName };
+
+        if (modelInfo.BaseWrapperType is null)
+        {
+            interfaces.Add($"IModelWrapper<{targetTypeName}>");
+        }
+
+        if (modelInfo.IsAbstract)
+        {
+            sb.AppendLine($"    public abstract partial class {className} : {string.Join(", ", interfaces)}");
+        }
+        else
+        {
+            sb.AppendLine($"    public partial class {className} : {string.Join(", ", interfaces)}");
+        }
+
+
 
 
         sb.AppendLine("    {");
 
-        // Generate PropertyChanged event and OnPropertyChanged method only if not using DeepObservableObject
-        if (!hasHierarchicalObjects)
+        if (!modelInfo.IsAbstract)
         {
-            sb.AppendLine("        public event PropertyChangedEventHandler? PropertyChanged;");
-            sb.AppendLine();
-            sb.AppendLine("        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)");
-            sb.AppendLine("        {");
-            sb.AppendLine("            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));");
-            sb.AppendLine("        }");
-            sb.AppendLine();
+            // Generate PropertyChanged event and OnPropertyChanged method only if not using DeepObservableObject
+            if (!hasHierarchicalObjects)
+            {
+                sb.AppendLine("        public event PropertyChangedEventHandler? PropertyChanged;");
+                sb.AppendLine();
+                sb.AppendLine("        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)");
+                sb.AppendLine("        {");
+                sb.AppendLine("            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));");
+                sb.AppendLine("        }");
+                sb.AppendLine();
+            }
+
+            // Generate properties based on their kind
+            GenerateProperties(sb, properties);
+
+            // Generate constructors
+            GenerateConstructors(sb, className, targetTypeName, properties, hasHierarchicalObjects);
         }
 
-        // Generate properties based on their kind
-        GenerateProperties(sb, properties);
 
-        // Generate constructors
-        GenerateConstructors(sb, className, targetTypeName, properties, hasHierarchicalObjects);
+        GenerateToRecordMethod(sb, modelInfo, properties);
 
         // Generate ToRecord method
-        GenerateToRecordMethod(sb, targetTypeName, properties);
+
 
         // Generate UpdateFrom method
-        GenerateUpdateFromMethod(sb, targetTypeName, properties);
+        GenerateUpdateFromMethod(sb, modelInfo, properties);
 
         // Close class
         sb.AppendLine("    }");
@@ -395,7 +472,6 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
         var lastDotIndex = fullTypeName.LastIndexOf('.');
         return lastDotIndex > 0 ? fullTypeName.Substring(0, lastDotIndex) : null;
     }
-
     private static void GenerateProperties(StringBuilder sb, ImmutableArray<PropertyInfo> properties)
     {
         foreach (var property in properties)
@@ -414,28 +490,33 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
                     GenerateModelCollectionProperty(sb, property);
                     break;
 
-                case PropertyKind.PrimitiveCollection:
+                case PropertyKind.Collection:
                     GeneratePrimitiveCollectionProperty(sb, property);
                     break;
             }
             sb.AppendLine();
         }
     }
-
     private static void GeneratePrimitiveProperty(StringBuilder sb, PropertyInfo property)
     {
         var fieldName = $"_{char.ToLower(property.Name[0])}{property.Name.Substring(1)}";
-        var defaultValue = property.Type == "string" ? " = string.Empty" : "";
-
+        
         // Backing field
 
         if (property.IsNullable)
         {
-            sb.AppendLine($"        private {property.Type}? {fieldName};");
+            sb.AppendLine($"        private {property.TypeName}? {fieldName};");
         }
         else
         {
-            sb.AppendLine($"        private {property.Type} {fieldName}{defaultValue};");
+            var defaultValue = string.Empty;
+
+            if (property.TypeName == "string")
+                defaultValue = " = string.Empty";
+            else if(!PrimitiveTypes.Contains(property.TypeName))
+                defaultValue = " = new ()";
+            
+            sb.AppendLine($"        private {property.TypeName} {fieldName}{defaultValue};");
         }
 
 
@@ -444,11 +525,11 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
         // Public property with notification
         if (property.IsNullable)
         {
-            sb.AppendLine($"        public {property.Type}? {property.Name}");
+            sb.AppendLine($"        public {property.TypeName}? {property.Name}");
         }
         else
         {
-            sb.AppendLine($"        public {property.Type} {property.Name}");
+            sb.AppendLine($"        public {property.TypeName} {property.Name}");
         }
         sb.AppendLine("        {");
         sb.AppendLine($"            get => {fieldName};");
@@ -462,11 +543,11 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
         sb.AppendLine("            }");
         sb.AppendLine("        }");
     }
-
     private static void GenerateModelObjectProperty(StringBuilder sb, PropertyInfo property)
     {
+        var modelTypeName = property.FullModelTypeName?.Split('.').Last();
+        
         var fieldName = $"_{char.ToLower(property.Name[0])}{property.Name.Substring(1)}";
-        var modelTypeName = GetSimpleTypeName(property.FullModelTypeName ?? $"{property.Type}Model");
 
         if (property.IsNullable)
         {
@@ -491,26 +572,19 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
 
 
     }
-
     private static void GenerateModelCollectionProperty(StringBuilder sb, PropertyInfo property)
     {
         var fieldName = $"_{char.ToLower(property.Name[0])}{property.Name.Substring(1)}";
         var elementModelType = GetSimpleTypeName(property.FullModelTypeName ?? $"{property.CollectionElementType}Model");
-        
+
         sb.AppendLine($"        private DeepObservableCollection<{elementModelType.Split('.').Last()}> {fieldName};");
-        
+
         sb.AppendLine($"        public DeepObservableCollection<{elementModelType.Split('.').Last()}> {property.Name}");
         sb.AppendLine("        {");
         sb.AppendLine($"            get => {fieldName};");
         sb.AppendLine($"            set => SetObjectProperty(ref {fieldName}, value);");
         sb.AppendLine("        }");
     }
-
-    private static string GetSimpleTypeName(string fullTypeName)
-    {
-        return fullTypeName.Split('.').Last();
-    }
-
     private static void GeneratePrimitiveCollectionProperty(StringBuilder sb, PropertyInfo property)
     {
         var fieldName = $"_{char.ToLower(property.Name[0])}{property.Name.Substring(1)}";
@@ -522,12 +596,18 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
         sb.AppendLine($"            set => SetObjectProperty(ref {fieldName}, value);");
         sb.AppendLine("        }");
     }
+    private static string GetSimpleTypeName(string fullTypeName)
+    {
+        return fullTypeName.Split('.').Last();
+    }
+    
+
 
     private static void GenerateConstructors(StringBuilder sb, string className, string targetTypeName,
         ImmutableArray<PropertyInfo> properties, bool hasHierarchicalObjects)
     {
 
-        var collections = properties.Where(p => p.Kind is PropertyKind.ModelCollection or PropertyKind.PrimitiveCollection).ToArray();
+        var collections = properties.Where(p => p.Kind is PropertyKind.ModelCollection or PropertyKind.Collection).ToArray();
 
         // Constructor with source parameter
         sb.AppendLine($"        public {className}({targetTypeName} source)");
@@ -539,7 +619,7 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
                 sb.AppendLine($"            {property.Name} = source.{property.Name};");
             else if (property.Kind == PropertyKind.ModelObject)
                 sb.AppendLine($"            {property.Name} = source.{property.Name}?.ToModel();");
-            else if (property.Kind == PropertyKind.PrimitiveCollection)
+            else if (property.Kind == PropertyKind.Collection)
                 sb.AppendLine($"            {property.Name} = new NodeObservableCollection<{property.CollectionElementType}>(source.{property.Name}, this);");
             else if (property.Kind == PropertyKind.ModelCollection)
                 sb.AppendLine($"            {property.Name} = new DeepObservableCollection<{property.CollectionElementType}>(source.{property.Name}.Select(x => x.ToModel()), this);");
@@ -564,24 +644,69 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
         sb.AppendLine();
     }
 
-    private static void GenerateToRecordMethod(StringBuilder sb, string targetTypeName, ImmutableArray<PropertyInfo> properties)
+    private static string GetObjectConversion(PropertyInfo property)
     {
-        sb.AppendLine($"        public {targetTypeName} ToRecord()");
-        sb.AppendLine("        {");
-        sb.AppendLine($"            return new {targetTypeName}");
+        if (property.IsNullable)
+            return $"{property.Name}?.ToRecord()";
+
+        return $"{property.Name}.ToRecord()";
+    }
+    private static string GetCollectionConversion(PropertyInfo property)
+    {
+        if (property.Type.Constructors.FirstOrDefault(c => c.Parameters.Length == 1) is IMethodSymbol ctor)
+        {
+            if(ctor.Parameters.First().Type.ToDisplayString().StartsWith("IEnumerable"))
+            {
+                return $"new {property.TypeName}({property.Name}.Select(x => x.ToRecord()))";
+            }
+        }
+
+        if(property.Type.AllInterfaces.Any(i => i.Name.StartsWith("ISet")))
+        {
+            return $"{property.Name}.Select(x => x.ToRecord()).ToHashSet()";
+        }
+
+        return $"{property.Name}.Select(x => x.ToRecord()).ToList()";
+    }
+
+    private static void GenerateToRecordMethod(StringBuilder sb, ModelGenerationInfo modelInfo, ImmutableArray<PropertyInfo> properties)
+    {
+        if (modelInfo.IsAbstract)
+        {
+            sb.AppendLine($"        public abstract {modelInfo.TargetWrapperType.ToDisplayString()} ToRecord();");
+
+            return;
+        }
+        else if (modelInfo.BaseWrapperType is not null)
+        {
+            sb.AppendLine($"        public override {modelInfo.BaseWrapperType?.ToDisplayString()} ToRecord()");
+            sb.AppendLine("        {");
+            sb.AppendLine($"            return new {modelInfo.TargetWrapperType.ToDisplayString()}");
+        }
+        else
+        {
+            sb.AppendLine($"        public {modelInfo.TargetWrapperType.ToDisplayString()} ToRecord()");
+            sb.AppendLine("        {");
+            sb.AppendLine($"            return new {modelInfo.TargetWrapperType.ToDisplayString()}");
+        }
+
         sb.AppendLine("            {");
 
         for (int i = 0; i < properties.Length; i++)
         {
             var property = properties[i];
+
+            if (property.IsReadOnly)
+                continue;
+
             var comma = i < properties.Length - 1 ? "," : "";
 
             var conversion = property.Kind switch
             {
                 PropertyKind.Primitive => property.Name,
-                PropertyKind.ModelObject => $"{property.Name}?.ToRecord()",
-                PropertyKind.ModelCollection => $"{property.Name}.Select(x => x.ToRecord()).ToList()",
-                PropertyKind.PrimitiveCollection => $"{property.Name}.ToList()",
+                PropertyKind.ModelObject => GetObjectConversion(property), //property.IsNullable ? $"{property.Name}?.ToRecord()" : $"{property.Name}.ToRecord()",
+                PropertyKind.ModelCollection => GetCollectionConversion(property), //$"{property.Name}.Select(x => x.ToRecord()).ToList()",
+                PropertyKind.Collection => GetCollectionConversion(property), //$"{property.Name}.ToList()",
                 _ => property.Name
             };
 
@@ -592,12 +717,24 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
         sb.AppendLine("        }");
         sb.AppendLine();
     }
-
-    private static void GenerateUpdateFromMethod(StringBuilder sb, string targetTypeName, ImmutableArray<PropertyInfo> properties)
+    private static void GenerateUpdateFromMethod(StringBuilder sb, ModelGenerationInfo modelInfo, ImmutableArray<PropertyInfo> properties)
     {
-        sb.AppendLine($"        public void UpdateFrom({targetTypeName} source)");
+        if (modelInfo.IsAbstract)
+        {
+            sb.AppendLine($"        public abstract void UpdateFrom({modelInfo.TargetWrapperType.ToDisplayString()} data);");
+
+            return;
+        }
+        else if (modelInfo.BaseWrapperType is not null)
+        {
+            sb.AppendLine($"        public override void UpdateFrom({modelInfo.BaseWrapperType?.ToDisplayString()} data)");
+        }
+        else
+        {
+            sb.AppendLine($"        public void UpdateFrom({modelInfo.TargetWrapperType.ToDisplayString()} data)");
+        }
         sb.AppendLine("        {");
-        sb.AppendLine("            if (source != null)");
+        sb.AppendLine($"            if (data is {modelInfo.TargetWrapperType.ToDisplayString()} source)");
         sb.AppendLine("            {");
 
         foreach (var property in properties)
@@ -605,9 +742,12 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
             switch (property.Kind)
             {
                 case PropertyKind.Primitive:
-                    if (property.Type == "string")
+                    if (property.TypeName == "string")
                     {
-                        sb.AppendLine($"                {property.Name} = source.{property.Name} ?? string.Empty;");
+                        if (property.IsNullable)
+                            sb.AppendLine($"                {property.Name} = source.{property.Name};");
+                        else
+                            sb.AppendLine($"                {property.Name} = source.{property.Name} ?? string.Empty;");
                     }
                     else
                     {
@@ -616,7 +756,10 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
                     break;
 
                 case PropertyKind.ModelObject:
-                    sb.AppendLine($"                {property.Name} = source.{property.Name}?.ToModel();");
+                    if(property.IsNullable)
+                        sb.AppendLine($"                {property.Name} = source.{property.Name}?.ToModel();");
+                    else
+                        sb.AppendLine($"                {property.Name} = source.{property.Name}.ToModel();");
                     break;
 
                 case PropertyKind.ModelCollection:
@@ -627,7 +770,7 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
                     sb.AppendLine("                }");
                     break;
 
-                case PropertyKind.PrimitiveCollection:
+                case PropertyKind.Collection:
                     sb.AppendLine($"                {property.Name}.Clear();");
                     sb.AppendLine($"                foreach (var item in source.{property.Name})");
                     sb.AppendLine("                {");
@@ -644,27 +787,45 @@ public class HierarchicalModelSourceGenerator : IIncrementalGenerator
 }
 
 // Helper classes
+/*
 public class ModelGenerationInfo
 {
-    public ClassDeclarationSyntax ClassDeclaration { get; set; } = null!;
-    public INamedTypeSymbol TargetType { get; set; } = null!;
+    public bool IsDerived { get; set; }
+    public bool IsAbstract { get; set; }
+    public INamedTypeSymbol? BaseType { get; set; }
+    public INamedTypeSymbol? BaseWrapperType { get; set; }
+    public INamedTypeSymbol GeneratedType { get; set; } = null!;
+    public INamedTypeSymbol TargetWrapperType { get; set; } = null!;
     public SemanticModel SemanticModel { get; set; } = null!;
+    public ClassDeclarationSyntax ClassDeclaration { get; set; } = null!;
+}
+
+
+public class TypeInfo
+{
+    public string Name { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Namespace { get; set; } = string.Empty;
 }
 
 public class PropertyInfo
 {
+    public bool IsReadOnly { get; set; }
     public string Name { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
+    public string TypeName { get; set; } = string.Empty;
     public bool IsNullable { get; set; }
-    public PropertyKind Kind { get; set; }
     public string? CollectionElementType { get; set; }
     public string? FullModelTypeName { get; set; }
+
+    public PropertyKind Kind { get; set; }
+    public INamedTypeSymbol Type { get; set; } = null!;
+    public INamedTypeSymbol? EllementType { get; set; }
 }
 
 public enum PropertyKind
 {
     Primitive,
+    Collection,
     ModelObject,
     ModelCollection,
-    PrimitiveCollection
-}
+}*/
